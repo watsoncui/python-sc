@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..common.observability import (
-    SlackWebhookAlertSink,
+    build_alert_sink,
     configure_logging,
     set_alert_sink,
 )
@@ -39,7 +39,10 @@ def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(level=logging.INFO, json_lines=settings.json_logs)
 
-    sink = SlackWebhookAlertSink(webhook_url=settings.slack_webhook_url or None)
+    sink = build_alert_sink(
+        slack_webhook_url=settings.slack_webhook_url or None,
+        pagerduty_routing_key=settings.pagerduty_routing_key or None,
+    )
     set_alert_sink(sink)
 
     app = FastAPI(
@@ -75,7 +78,7 @@ def create_app() -> FastAPI:
             "name": "SciCompute-Assistant",
             "mode": settings.mode,
             "version": "0.2.0",
-            "alert_sink": "slack" if sink.is_configured else "null",
+            "alert_sink": type(sink).__name__,
         }
 
     @app.get("/healthz", tags=["meta"])

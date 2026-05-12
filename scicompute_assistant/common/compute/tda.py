@@ -253,11 +253,15 @@ class TDAEngine:
         except KeyError as exc:
             raise ValueError(str(exc)) from exc
 
-        params: dict[str, Any] = {
+        # Defaults from the protocol level are overridden by request-level
+        # ``params``; operator-specific schema then fills any remaining gaps
+        # and rejects malformed values *before* the call hits NumPy.
+        merged_params: dict[str, Any] = {
             "max_dimension": req.max_dimension,
             "max_edge_length": max_edge,
             **(req.params or {}),
         }
+        params = op.descriptor().validate_params(merged_params)
 
         t0 = time.perf_counter()
         result = op.run(X, params)

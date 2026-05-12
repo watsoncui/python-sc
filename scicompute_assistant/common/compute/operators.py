@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any, ClassVar  # noqa: F401  - ClassVar referenced in subclasses
 
 
 @dataclass
@@ -40,6 +40,65 @@ class OperatorDescriptor:
     description: str
     params_schema: dict[str, Any]
     output_homology_dims: list[int] = field(default_factory=lambda: [0, 1])
+
+    # ------------------------------------------------------------------ #
+    # Lightweight params validation
+    # ------------------------------------------------------------------ #
+    # ``params_schema`` is a *tiny* subset of JSON Schema – we only support
+    # ``type``, ``default``, ``min``, ``max`` per field. Pulling in the full
+    # ``jsonschema`` library would dwarf the rest of the dependency tree;
+    # the current shape is enough to (a) auto-fill defaults so engines never
+    # see ``KeyError``, and (b) reject the typical student typos
+    # (``max_dimension=2.5`` or ``max_edge_length=-1``).
+    _TYPE_PY: ClassVar[dict[str, tuple[type, ...]]] = {
+        "integer": (int,),
+        "number": (int, float),
+        "string": (str,),
+        "boolean": (bool,),
+    }
+
+    def validate_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Return a *new* params dict with defaults filled in and types coerced.
+
+        Raises :class:`ValueError` on any irrecoverable mismatch. Unknown
+        fields are kept as-is (forwards-compat – tomorrow's giotto-tda flag
+        should not require touching the engine today).
+        """
+        out: dict[str, Any] = dict(params or {})
+        for name, spec in self.params_schema.items():
+            expected_types = self._TYPE_PY.get(spec.get("type", "number"), (int, float))
+            if name not in out:
+                if "default" in spec:
+                    out[name] = spec["default"]
+                    continue
+                raise ValueError(
+                    f"Operator {self.operator_id!r}: missing required param "
+                    f"{name!r}."
+                )
+            value = out[name]
+            # bool is a subclass of int; reject the cross-mapping explicitly so
+            # `max_dimension=True` doesn't pass as an integer.
+            if expected_types == (int,) and isinstance(value, bool):
+                raise ValueError(
+                    f"Operator {self.operator_id!r}: param {name!r} must be "
+                    f"an integer, got bool."
+                )
+            if not isinstance(value, expected_types):
+                raise ValueError(
+                    f"Operator {self.operator_id!r}: param {name!r} expected "
+                    f"{spec.get('type', 'number')}, got {type(value).__name__}."
+                )
+            if "min" in spec and value < spec["min"]:
+                raise ValueError(
+                    f"Operator {self.operator_id!r}: param {name!r}={value} "
+                    f"is below the allowed minimum {spec['min']}."
+                )
+            if "max" in spec and value > spec["max"]:
+                raise ValueError(
+                    f"Operator {self.operator_id!r}: param {name!r}={value} "
+                    f"exceeds the allowed maximum {spec['max']}."
+                )
+        return out
 
 
 class Operator(abc.ABC):

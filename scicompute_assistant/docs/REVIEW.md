@@ -565,3 +565,20 @@ async def __aexit__(self, exc_type, exc, tb) -> bool:
 > 与「横切关注点」彻底解耦，让后续添加（新算子 / 新告警通道 / 新错误类型 /
 > 新 provider）都变成「单点修改 + 注册」，符合 Open/Closed 与
 > Single-Responsibility 原则。
+
+---
+
+## 五、Follow-ups（v0.2.1）
+
+以上设计在本轮被三个轻量补强 *验证* 为「真正开放扩展」：
+
+| Follow-up | 验证的扩展点 | 设计模式 |
+|---|---|---|
+| `OperatorDescriptor.validate_params` —— 在 `/tda/pipeline` 入口对 `params` 做轻量 JSON Schema 校验（type/default/min/max） | Registry 自描述 schema 真的能被消费 | Schema-Driven Validation |
+| `AIOrchestrator.describe()` —— `/ai/providers` 不再访问 `_server`/`_local` 私有属性 | 内省 API 与内部表示彻底解耦 | Information Hiding |
+| `PagerDutyAlertSink` + `CompositeAlertSink` + `build_alert_sink(...)` 工厂 —— Slack/PagerDuty 同时投递，子 sink 失败不影响其他 | AlertSink Strategy 抽象的可叠加性 | Composite + Strategy + Factory |
+
+新增 17 项测试（`tests/test_followups.py`），全套累计 **58 passed**。
+每一项 follow-up 都没有触及核心业务路径——它们都是新增「注册 / 实现一个接口」
+而已，正是 v0.2 三大设计模式（Strategy / Registry / Typed Hierarchy）想要换取
+的回报。

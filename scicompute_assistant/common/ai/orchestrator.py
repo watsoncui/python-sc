@@ -88,6 +88,27 @@ class AIOrchestrator:
                 await p.aclose()
 
     # ------------------------------------------------------------------ #
+    # Public introspection – callers must not poke at _server / _local
+    # directly. This keeps the route layer decoupled from our internals
+    # so future builds (e.g. multi-tenant teacher accounts) can answer
+    # this question differently.
+    # ------------------------------------------------------------------ #
+    def describe(self) -> dict[str, Any]:
+        """Return a JSON-safe snapshot of which providers are wired in."""
+        return {
+            "server_available": self._server is not None,
+            "local_available": self._local is not None,
+            "default": (
+                ProviderMode.SERVER.value if self._server is not None
+                else ProviderMode.LOCAL.value
+            ),
+            "providers": [
+                {"name": p.name, "mode": p.mode.value, "default_model": p.default_model}
+                for p in (self._server, self._local) if p is not None
+            ],
+        }
+
+    # ------------------------------------------------------------------ #
     # RAG (best-effort; never breaks the LLM call)
     # ------------------------------------------------------------------ #
     def _retrieve_context(self, *, tags: list[str] | None, query: str) -> tuple[str, list[str]]:

@@ -14,7 +14,6 @@ from ...common.protocols.api_models import (
     AuditResponse,
     ChatRequest,
     ChatResponse,
-    ProviderMode,
 )
 from ..dependencies import orchestrator_dep
 
@@ -41,8 +40,4 @@ async def providers(orch: AIOrchestrator = Depends(orchestrator_dep)) -> dict[st
     Front-ends use this to grey out the matching toggle so students
     cannot pick a mode that will never work in this build.
     """
-    return {
-        "server_available": orch._server is not None,  # noqa: SLF001 - intentional
-        "local_available": orch._local is not None,
-        "default": ProviderMode.SERVER.value if orch._server else ProviderMode.LOCAL.value,
-    }
+    return orch.describe()

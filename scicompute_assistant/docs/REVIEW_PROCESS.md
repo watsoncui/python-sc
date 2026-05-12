@@ -331,8 +331,10 @@
 - [ ] 接入 ChromaDB 后台索引器（v0.1 KnowledgeService 仍是 BoW）。
 - [ ] Tauri Rust 端 IPC 实装（目前只有 Python 占位）。
 - [ ] `pytest-benchmark` + GitHub Actions 跑性能回归。
-- [ ] 给 `Operator.descriptor()` 引入完整 JSON Schema，并在 `/tda/pipeline` 入口对 `params` 做 schema 校验。
-- [ ] 给 Slack 告警增加 PagerDuty 备选通道（同一 `AlertSink` 接口）。
+- [x] 给 `Operator.descriptor()` 引入轻量 JSON Schema（type/default/min/max），并在 `/tda/pipeline` 入口对 `params` 做 schema 校验 → `OperatorDescriptor.validate_params`；`tests/test_followups.py::F1`。
+- [x] 给 Slack 告警增加 PagerDuty 备选通道（同一 `AlertSink` 接口） → `PagerDutyAlertSink` + `CompositeAlertSink` + `build_alert_sink(...)` 工厂；`tests/test_followups.py::F3`。
+- [x] `AIOrchestrator.describe()` 取代 `/ai/providers` 中的私有属性访问 → 移除 `# noqa: SLF001`；`tests/test_followups.py::F2`。
+- [ ] `server/config.py` 拆分为嵌套模型（`LLMConfig` / `SandboxConfig` / `ObservabilityConfig`）；涉及面广（所有 `SCICOMP_*` 环境变量重命名），单独立 PR。
 
 ---
 

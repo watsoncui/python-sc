@@ -57,6 +57,7 @@ class ServerSettings(BaseSettings):
     # Observability
     json_logs: bool = False
     slack_webhook_url: str = ""
+    pagerduty_routing_key: str = ""
 
 
 def load_settings() -> ServerSettings:
