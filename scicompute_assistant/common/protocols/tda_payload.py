@@ -15,7 +15,7 @@ Three.js). It is intentionally:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,8 @@ class PersistenceDiagramPayload(BaseModel):
 
     points: list[PersistencePoint]
     max_filtration: float
+    # Ready-to-render Plotly traces: H_k scattergl layers plus the diagonal.
+    plotly_traces: list[dict[str, Any]] = Field(default_factory=list)
     # Layered helpers so the FE can draw the diagonal & framing axes immediately
     # without a second round-trip.
     axis_limits: tuple[float, float] = (0.0, 1.0)
