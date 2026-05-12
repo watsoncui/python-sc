@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 16% 8%;
+    --foreground: 220 10% 95%;
+    --card: 220 14% 11%;
+    --card-foreground: 220 10% 95%;
+    --popover: 220 14% 11%;
+    --popover-foreground: 220 10% 95%;
+    --primary: 263 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 13% 18%;
+    --secondary-foreground: 220 10% 80%;
+    --muted: 220 13% 15%;
+    --muted-foreground: 220 8% 55%;
+    --accent: 263 55% 25%;
+    --accent-foreground: 263 85% 80%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 20%;
+    --input: 220 13% 18%;
+    --ring: 263 85% 60%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+  }
+  #root {
+    width: 100%;
+    height: 100vh;
+    max-width: 100%;
+    margin: 0;
+    text-align: left;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+/* Monaco Editor container overrides */
+.monaco-editor-container {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Plotly chart overrides for dark theme */
+.plotly-chart .modebar {
+  background: transparent !important;
+}
