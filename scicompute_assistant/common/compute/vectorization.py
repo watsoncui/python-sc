@@ -215,7 +215,7 @@ class _VectorizingFunctionTransformer(ast.NodeTransformer):
             *vector_setup,
             ast.Return(value=ast.Call(func=ast.Name(id="float", ctx=ast.Load()), args=[sum_call], keywords=[])),
         ]
-        snippet = "\n".join(ast.unparse(stmt) for stmt in statements)
+        snippet = _unparse_statements(statements)
         return (
             statements,
             3,
@@ -255,7 +255,7 @@ class _VectorizingFunctionTransformer(ast.NodeTransformer):
             return None
         expr = _vectorize_expr(call.args[0], bindings)
         statements: list[ast.stmt] = [*_sanitizing_assignments(bindings), ast.Return(value=expr)]
-        snippet = "\n".join(ast.unparse(stmt) for stmt in statements)
+        snippet = _unparse_statements(statements)
         loop_line = getattr(loop_stmt, "lineno", None)
         return (
             statements,
@@ -313,7 +313,7 @@ class _VectorizingFunctionTransformer(ast.NodeTransformer):
         ]
         expr = _vectorize_indexed_expr(assign_stmt.value, index_name, indexed_names)
         statements: list[ast.stmt] = [*_sanitizing_assignments(bindings), ast.Return(value=expr)]
-        snippet = "\n".join(ast.unparse(stmt) for stmt in statements)
+        snippet = _unparse_statements(statements)
         loop_line = getattr(loop_stmt, "lineno", None)
         return (
             statements,
@@ -416,6 +416,11 @@ def _has_numpy_import(tree: ast.AST) -> bool:
         if isinstance(node, ast.ImportFrom) and node.module == "numpy":
             return True
     return False
+
+
+def _unparse_statements(statements: list[ast.stmt]) -> str:
+    module = ast.fix_missing_locations(ast.Module(body=statements, type_ignores=[]))
+    return "\n".join(ast.unparse(stmt) for stmt in module.body)
 
 
 def _is_numeric_zero(node: ast.AST) -> bool:
