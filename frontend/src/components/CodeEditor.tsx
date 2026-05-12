@@ -37,6 +37,8 @@ export interface CodeEditorProps {
   onAIOptimize?: (code: string) => Promise<AuditResponse | null>
   onRunCode?: (code: string) => void
   aiLoading?: boolean
+  /** Override initial code (e.g., from week selector) */
+  initialCode?: string
 }
 
 export function CodeEditor({
@@ -44,12 +46,21 @@ export function CodeEditor({
   onAIOptimize,
   onRunCode,
   aiLoading = false,
+  initialCode,
 }: CodeEditorProps) {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-  const [code, setCode] = useState(DEMO_CODE)
+  const [code, setCode] = useState(initialCode ?? DEMO_CODE)
   const [copied, setCopied] = useState(false)
   const [lastSuggestions, setLastSuggestions] = useState<AuditResponse | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Sync when initialCode changes from outside (week switch)
+  const prevInitialRef = useRef(initialCode)
+  if (initialCode && initialCode !== prevInitialRef.current) {
+    prevInitialRef.current = initialCode
+    setCode(initialCode)
+    editorRef.current?.setValue(initialCode)
+  }
 
   const handleMount: OnMount = (editor) => {
     editorRef.current = editor
@@ -82,8 +93,9 @@ export function CodeEditor({
   }
 
   const handleReset = () => {
-    setCode(DEMO_CODE)
-    editorRef.current?.setValue(DEMO_CODE)
+    const resetTo = initialCode ?? DEMO_CODE
+    setCode(resetTo)
+    editorRef.current?.setValue(resetTo)
     setLastSuggestions(null)
     setShowSuggestions(false)
   }
