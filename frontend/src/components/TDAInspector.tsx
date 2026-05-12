@@ -3,8 +3,8 @@
  * Betti numbers, and filtration statistics returned by the backend.
  * Also exposes controls to trigger a fresh TDA pipeline run.
  */
-import { useState } from 'react'
-import { Activity, ChevronDown, ChevronRight, AlertTriangle, Info, Sigma } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Activity, ChevronDown, ChevronRight, AlertTriangle, Info, Sigma, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -200,6 +200,22 @@ export function TDAInspector({
   onRun,
   className,
 }: TDAInspectorProps) {
+  const [minPersistence, setMinPersistence] = useState(0)
+
+  // Compute max persistence to set slider range
+  const maxPersistenceValue = useMemo(() => {
+    if (!result) return 1
+    const vals = result.diagram.points
+      .map((p) => p.persistence)
+      .filter((v) => Number.isFinite(v) && v < 1e6)
+    return vals.length ? Math.max(...vals) : 1
+  }, [result])
+
+  const filteredPoints = useMemo(() => {
+    if (!result) return []
+    return result.diagram.points.filter((p) => p.persistence >= minPersistence)
+  }, [result, minPersistence])
+
   return (
     <div className={cn('flex h-full flex-col bg-card border-t border-border', className)}>
       {/* Header */}
@@ -306,14 +322,43 @@ export function TDAInspector({
                 </div>
               )}
 
+                  {/* Persistence filter slider */}
+              {maxPersistenceValue > 0 && (
+                <div className="border border-border/60 rounded-md px-3 py-2">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-violet-400" />
+                    <span className="text-xs font-medium">Persistence 过滤</span>
+                    <span className="ml-auto text-[10px] font-mono text-muted-foreground">
+                      ≥ {minPersistence.toFixed(3)}
+                    </span>
+                    <Badge variant="muted" className="text-[9px] px-1">
+                      {filteredPoints.length}/{result.diagram.points.length}
+                    </Badge>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={maxPersistenceValue}
+                    step={maxPersistenceValue / 100}
+                    value={minPersistence}
+                    onChange={(e) => setMinPersistence(parseFloat(e.target.value))}
+                    className="w-full accent-violet-500 h-1.5"
+                  />
+                  <div className="flex justify-between mt-0.5">
+                    <span className="text-[9px] text-muted-foreground">0</span>
+                    <span className="text-[9px] text-muted-foreground">{maxPersistenceValue.toFixed(3)}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Betti curves */}
               {result.diagram.betti_curves.length > 0 && (
                 <BettiSection curves={result.diagram.betti_curves} />
               )}
 
-              {/* Persistence points table */}
-              {result.diagram.points.length > 0 && (
-                <PointsSection points={result.diagram.points} />
+              {/* Persistence points table (filtered) */}
+              {filteredPoints.length > 0 && (
+                <PointsSection points={filteredPoints} />
               )}
             </>
           )}
