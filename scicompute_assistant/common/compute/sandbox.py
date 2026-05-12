@@ -81,6 +81,9 @@ class SandboxResult:
     result: dict[str, Any] = field(default_factory=dict)
     elapsed_ms: float = 0.0
     error: str | None = None
+    #: Names of result entries whose numeric value contained NaN/Inf. Routes
+    #: bubble these up so the front-end can flag them to the student.
+    nonfinite_keys: list[str] = field(default_factory=list)
 
 
 class _Timeout(Exception):
@@ -89,6 +92,32 @@ class _Timeout(Exception):
 
 def _alarm_handler(signum, frame):  # noqa: ANN001, ARG001
     raise _Timeout("Sandbox wall-clock budget exceeded.")
+
+
+def _scrub_nonfinite(
+    payload: dict[str, Any], *, prefix: str = ""
+) -> tuple[dict[str, Any], list[str]]:
+    """Walk a nested dict/list, replacing NaN/Inf with ``None``.
+
+    Returns the scrubbed payload + a list of dotted keys that were touched
+    (so the route layer can attach a warning to the response).
+    """
+    touched: list[str] = []
+
+    def _walk(value: Any, path: str) -> Any:
+        if isinstance(value, float):
+            if not math.isfinite(value):
+                touched.append(path)
+                return None
+            return value
+        if isinstance(value, dict):
+            return {k: _walk(v, f"{path}.{k}" if path else str(k)) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [_walk(v, f"{path}[{i}]") for i, v in enumerate(value)]
+        return value
+
+    scrubbed = _walk(payload, prefix)
+    return scrubbed, touched
 
 
 def _make_safe_import():
@@ -194,12 +223,18 @@ class Sandbox:
         if not isinstance(result_payload, dict):
             result_payload = {"value": result_payload}
 
+        # NaN / Inf are JSON-illegal and almost always indicate a numerical
+        # bug. We replace them with None so the wire format stays valid and
+        # remember the offending keys so the route can surface a warning.
+        result_payload, nonfinite_keys = _scrub_nonfinite(result_payload)
+
         return SandboxResult(
             ok=True,
             stdout=stdout.getvalue(),
             stderr=stderr.getvalue(),
             result=result_payload,
             elapsed_ms=elapsed,
+            nonfinite_keys=nonfinite_keys,
         )
 
     # ------------------------------------------------------------------ #

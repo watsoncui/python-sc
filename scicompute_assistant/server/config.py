@@ -51,6 +51,13 @@ class ServerSettings(BaseSettings):
     # Disable outbound LLM calls (used by CI / smoke tests)
     disable_outbound_llm: bool = False
 
+    # HTTP rate limit (per-IP, per minute)
+    http_rpm_limit: int = 60
+
+    # Observability
+    json_logs: bool = False
+    slack_webhook_url: str = ""
+
 
 def load_settings() -> ServerSettings:
     return ServerSettings()

@@ -15,7 +15,7 @@ Three.js). It is intentionally:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -59,13 +59,47 @@ class TDARequest(BaseModel):
     Either ``data`` (raw point cloud) **or** ``code`` (custom NumPy snippet
     producing a ``points`` ndarray named ``X``) must be provided. The latter
     is gated through the sandbox.
+
+    Backwards compatibility: ``pipeline`` is kept as a typed Literal for
+    existing clients; new clients should prefer ``operator`` + ``params``
+    which delegate to the plugin registry and are open for extension.
     """
 
     data: list[list[float]] | None = None
     code: str | None = None
-    pipeline: Literal["vietoris_rips", "alpha", "cubical", "mapper"] = "vietoris_rips"
+
+    pipeline: Literal["vietoris_rips", "alpha", "cubical", "mapper", "mst_h0"] = "vietoris_rips"
+    operator: str | None = Field(
+        default=None,
+        description=(
+            "Plugin operator id (preferred over `pipeline`). When set, "
+            "wins over `pipeline` for routing."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Operator-specific parameters; merged with the standard ones.",
+    )
+
     max_dimension: int = Field(2, ge=0, le=3)
-    max_edge_length: float = Field(1.0, gt=0.0)
+    max_edge_length: float = Field(1.0, ge=0.0)
+    auto_max_edge_length: bool = Field(
+        default=False,
+        description=(
+            "When True (or max_edge_length<=0), the engine estimates a "
+            "data-driven max_edge_length from the cloud diameter."
+        ),
+    )
+    standardize: bool = Field(
+        default=False,
+        description="Apply z-score normalisation before filtration.",
+    )
+    min_persistence: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Drop features with persistence below this threshold (noise filter).",
+    )
+
     n_bins: int = Field(100, ge=10, le=1024, description="Sampling for Betti curves.")
     downsample_preview: int = Field(
         500,
