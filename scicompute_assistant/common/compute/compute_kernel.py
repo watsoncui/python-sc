@@ -1,7 +1,8 @@
-"""Scientific compute kernels (NumPy / SciPy / giotto-tda) with a sandbox layer."""
+"""Compatibility module for the Opus-style ``compute_kernel.py`` interface."""
+
+from __future__ import annotations
 
 from .kernel import ComputeKernel
-from .sandbox import Sandbox, SandboxResult
 from .signal_examples import (
     SignalSeries,
     SpectrogramSeries,
@@ -15,7 +16,6 @@ from .signal_examples import (
     spectrogram_example,
     welch_power_spectrum,
 )
-from .tda import TDAEngine
 from .vectorization import (
     VectorizationAuditResult,
     VectorizationSuggestion,
@@ -24,12 +24,9 @@ from .vectorization import (
 
 __all__ = [
     "ComputeKernel",
-    "Sandbox",
-    "SandboxResult",
     "SignalSeries",
     "SpectrogramSeries",
     "SpectrumSeries",
-    "TDAEngine",
     "VectorizationAuditResult",
     "VectorizationSuggestion",
     "audit_vectorized_code",
