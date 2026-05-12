@@ -96,6 +96,25 @@ def butterworth_filter(
     )
 
 
+def bandpass_filter(
+    samples: ArrayLike,
+    *,
+    sample_rate_hz: float,
+    low_hz: float,
+    high_hz: float,
+    order: int = 4,
+) -> SignalSeries:
+    """Convenience example: retain a frequency band with a Butterworth filter."""
+
+    return butterworth_filter(
+        samples,
+        sample_rate_hz=sample_rate_hz,
+        cutoff_hz=(low_hz, high_hz),
+        order=order,
+        kind="bandpass",
+    )
+
+
 def fft_spectrum(samples: ArrayLike, *, sample_rate_hz: float) -> SpectrumSeries:
     """Return a Hann-windowed one-sided FFT amplitude spectrum."""
 
