@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "cursor/**"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Disable real LLM calls in all CI jobs
+  SCICOMP_DISABLE_OUTBOUND_LLM: "true"
+  SCICOMP_SERVER_API_KEY: ""
+  # Force BoW backend so we skip the Chroma download on every run
+  SCICOMP_KNOWLEDGE__FORCE_BOW: "true"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────
+  # 1. Lint
+  # ─────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff
+        run: ruff check scicompute_assistant/ --output-format=github
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 2. Unit + integration tests
+  # ─────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install project + dev extras
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run tests (exclude benchmarks)
+        run: >
+          pytest scicompute_assistant/tests
+          --ignore=scicompute_assistant/tests/test_benchmarks.py
+          -v
+          --tb=short
+          --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: test-results.xml
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 3. Performance benchmarks  (only on pushes to main / tagged releases)
+  # ─────────────────────────────────────────────────────────────────────
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install project + dev extras
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run benchmarks
+        run: >
+          pytest scicompute_assistant/tests/test_benchmarks.py
+          --benchmark-enable
+          --benchmark-autosave
+          --benchmark-sort=mean
+          --benchmark-json=benchmark-results.json
+          -v
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 4. Smoke test: FastAPI server starts cleanly
+  # ─────────────────────────────────────────────────────────────────────
+  smoke:
+    name: Smoke test (FastAPI startup)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install project
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Start server in background
+        run: |
+          uvicorn scicompute_assistant.server.main:app \
+            --host 127.0.0.1 --port 8765 &
+          # Give uvicorn up to 10 s to become ready
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8765/healthz && break
+            sleep 0.5
+          done
+
+      - name: Healthz
+        run: curl -sf http://127.0.0.1:8765/healthz | grep '"status":"ok"'
+
+      - name: Root endpoint
+        run: curl -sf http://127.0.0.1:8765/ | grep '"name":"SciCompute-Assistant"'
+
+      - name: TDA operators
+        run: curl -sf http://127.0.0.1:8765/tda/operators | python3 -c "import sys,json; ops=json.load(sys.stdin); assert len(ops)>=3, ops"
+
+      - name: AI providers
+        run: curl -sf http://127.0.0.1:8765/ai/providers | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'providers' in d"
+
+      - name: Compute sandbox
+        run: |
+          curl -sf -X POST http://127.0.0.1:8765/compute/run \
+            -H 'Content-Type: application/json' \
+            -d '{"code":"result={\"x\":2+2}","timeout_sec":2}' \
+            | python3 -c "import sys,json; r=json.load(sys.stdin); assert r['result']['x']==4"

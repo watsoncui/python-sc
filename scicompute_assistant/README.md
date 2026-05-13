@@ -9,12 +9,14 @@
 
 ## 文档
 
-| 文档 | 任务 |
+| 文档 | 主题 |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 1. 架构拆解 + `common/` 接口规范 |
-| [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)     | 2. 向量化审计 System Prompt |
-| [`docs/TDA_PROTOCOL.md`](docs/TDA_PROTOCOL.md) | 3. TDA 后端 → Plotly 前端协议 |
-| [`docs/SECURITY_TAURI.md`](docs/SECURITY_TAURI.md) | 4. 离线版 API Key 安全方案 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 架构拆解 + `common/` 接口规范 |
+| [`docs/AI_PROMPTS.md`](docs/AI_PROMPTS.md)     | 向量化审计 System Prompt |
+| [`docs/TDA_PROTOCOL.md`](docs/TDA_PROTOCOL.md) | TDA 后端 → Plotly 前端协议 |
+| [`docs/SECURITY_TAURI.md`](docs/SECURITY_TAURI.md) | 离线版 API Key 安全方案 |
+| [`docs/REVIEW.md`](docs/REVIEW.md) | v0.1 → v0.2 深度审查的 Before/After + 设计模式 |
+| [`docs/REVIEW_PROCESS.md`](docs/REVIEW_PROCESS.md) | 审查方法论 / 议题工单 / EHFV 循环 / 复现指南 |
 
 ## 快速启动（服务版原型）
 

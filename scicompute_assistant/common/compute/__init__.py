@@ -2,43 +2,6 @@
 
 from .kernel import ComputeKernel
 from .sandbox import Sandbox, SandboxResult
-from .signal_examples import (
-    SignalSeries,
-    SpectrogramSeries,
-    SpectrumSeries,
-    bandpass_filter,
-    butterworth_filter,
-    cross_correlation,
-    demo_signal,
-    fft_spectrum,
-    resample_signal,
-    spectrogram_example,
-    welch_power_spectrum,
-)
 from .tda import TDAEngine
-from .vectorization import (
-    VectorizationAuditResult,
-    VectorizationSuggestion,
-    audit_vectorized_code,
-)
 
-__all__ = [
-    "ComputeKernel",
-    "Sandbox",
-    "SandboxResult",
-    "SignalSeries",
-    "SpectrogramSeries",
-    "SpectrumSeries",
-    "TDAEngine",
-    "VectorizationAuditResult",
-    "VectorizationSuggestion",
-    "audit_vectorized_code",
-    "bandpass_filter",
-    "butterworth_filter",
-    "cross_correlation",
-    "demo_signal",
-    "fft_spectrum",
-    "resample_signal",
-    "spectrogram_example",
-    "welch_power_spectrum",
-]
+__all__ = ["ComputeKernel", "Sandbox", "SandboxResult", "TDAEngine"]
