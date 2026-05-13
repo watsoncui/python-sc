@@ -15,19 +15,14 @@ from ..common.ai import (
 )
 from ..common.ai.base import LLMCallResult
 from ..common.compute import ComputeKernel, TDAEngine
-from ..common.knowledge import KnowledgeService
+from ..common.knowledge import KnowledgeService, build_knowledge_service
 from ..common.protocols.api_models import ChatMessage, LLMUsage, ProviderMode
 from ..common.security import build_default_store
 from .config import ServerSettings, load_settings
 
 
 class _StubProvider(BaseLLM):
-    """No-network provider used in CI / smoke tests.
-
-    Returns a deterministic shaped response so the route layer is exercised
-    end-to-end without hitting an upstream LLM. Audit responses are valid
-    JSON that conforms to the system prompt's contract.
-    """
+    """No-network provider used in CI / smoke tests."""
 
     name = "stub"
     mode = ProviderMode.SERVER
@@ -81,16 +76,19 @@ def get_settings() -> ServerSettings:
 @lru_cache
 def get_knowledge_service() -> KnowledgeService:
     settings = get_settings()
-    return KnowledgeService(root=settings.courseware_root)
+    cfg = settings.knowledge
+    return build_knowledge_service(
+        root=cfg.courseware_root,
+        persist_directory=cfg.chroma_persist_dir,
+        embedding_model=cfg.embedding_model,
+        force_bow=cfg.force_bow,
+    )
 
 
 @lru_cache
 def get_compute_kernel() -> ComputeKernel:
-    settings = get_settings()
-    return ComputeKernel(
-        timeout_sec=settings.sandbox_timeout_sec,
-        restricted=settings.sandbox_restricted,
-    )
+    cfg = get_settings().sandbox
+    return ComputeKernel(timeout_sec=cfg.timeout_sec, restricted=cfg.restricted)
 
 
 @lru_cache
@@ -101,39 +99,42 @@ def get_tda_engine() -> TDAEngine:
 @lru_cache
 def get_orchestrator() -> AIOrchestrator:
     settings = get_settings()
+    llm = settings.llm
+    sec = settings.security
 
     server: BaseLLM | None = None
     local: BaseLLM | None = None
 
-    if settings.disable_outbound_llm or not settings.server_api_key:
+    if llm.disable_outbound or not llm.server_api_key:
         server = _StubProvider()
     else:
         server = ServerProvider(
-            api_key=settings.server_api_key,
-            base_url=settings.server_base_url,
-            default_model=settings.server_default_model,
-            rpm_limit=settings.server_rpm_limit,
-            burst=settings.server_burst,
+            api_key=llm.server_api_key,
+            base_url=llm.server_base_url,
+            default_model=llm.server_default_model,
+            rpm_limit=llm.server_rpm_limit,
+            burst=llm.server_burst,
+            max_retries=llm.max_retries,
         )
 
     if settings.mode == "desktop":
         store = build_default_store(
             mode="desktop",
-            fallback_path=settings.fallback_store_path,
-            fallback_passphrase=settings.fallback_passphrase or "scicompute-dev",
+            fallback_path=sec.fallback_store_path,
+            fallback_passphrase=sec.fallback_passphrase or "scicompute-dev",
         )
         local = LocalProvider(
             store=store,
-            default_endpoint=settings.local_default_endpoint,
-            default_model=settings.local_default_model,
+            default_endpoint=llm.local_default_endpoint,
+            default_model=llm.local_default_model,
         )
 
     return AIOrchestrator(server=server, local=local, knowledge=get_knowledge_service())
 
 
-# ------------------------------------------------------------------ #
+# --------------------------------------------------------------------------- #
 # FastAPI deps
-# ------------------------------------------------------------------ #
+# --------------------------------------------------------------------------- #
 def orchestrator_dep(request: Request) -> AIOrchestrator:  # noqa: ARG001
     return get_orchestrator()
 

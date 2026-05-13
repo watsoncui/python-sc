@@ -3,10 +3,7 @@
 Run::
 
     uvicorn scicompute_assistant.server.main:app --reload
-
-Or via the console script::
-
-    scicompute-server
+    scicompute-server                             # console script
 """
 
 from __future__ import annotations
@@ -17,11 +14,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import load_settings
-from .dependencies import (
-    get_orchestrator,
-    get_settings,
+from ..common.observability import (
+    build_alert_sink,
+    configure_logging,
+    set_alert_sink,
 )
+from .config import load_settings
+from .dependencies import get_orchestrator, get_settings
+from .error_handlers import install_exception_handlers
+from .middleware.observability import RequestContextMiddleware
 from .middleware.rate_limit import IPRateLimiter
 from .routers import ai, compute, knowledge, tda
 
@@ -36,9 +37,18 @@ async def _lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    obs = settings.observability
+    configure_logging(level=logging.INFO, json_lines=obs.json_logs)
+
+    sink = build_alert_sink(
+        slack_webhook_url=obs.slack_webhook_url or None,
+        pagerduty_routing_key=obs.pagerduty_routing_key or None,
+    )
+    set_alert_sink(sink)
+
     app = FastAPI(
         title="SciCompute-Assistant",
-        version="0.1.0",
+        version="0.2.0",
         description=(
             "Dual-mode (server/local) teaching assistant for Python scientific "
             "computing, with TDA visualization support."
@@ -53,7 +63,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(IPRateLimiter, max_requests=60, window_sec=60.0)
+    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(IPRateLimiter, max_requests=settings.observability.http_rpm_limit, window_sec=60.0)
+
+    install_exception_handlers(app)
 
     app.include_router(ai.router)
     app.include_router(compute.router)
@@ -65,7 +78,8 @@ def create_app() -> FastAPI:
         return {
             "name": "SciCompute-Assistant",
             "mode": settings.mode,
-            "version": "0.1.0",
+            "version": "0.2.0",
+            "alert_sink": type(sink).__name__,
         }
 
     @app.get("/healthz", tags=["meta"])
@@ -78,11 +92,10 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-def run() -> None:  # pragma: no cover - thin shim
+def run() -> None:  # pragma: no cover
     import uvicorn
 
-    settings = load_settings()
-    logging.basicConfig(level=logging.INFO)
+    load_settings()
     uvicorn.run(
         "scicompute_assistant.server.main:app",
         host="0.0.0.0",

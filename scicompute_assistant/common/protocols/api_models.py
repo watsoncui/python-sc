@@ -115,3 +115,7 @@ class ComputeResponse(BaseModel):
     result: dict[str, Any] = Field(default_factory=dict)
     elapsed_ms: float = 0.0
     error: str | None = None
+    nonfinite_keys: list[str] = Field(
+        default_factory=list,
+        description="Result-dict keys whose value was NaN/Inf and was replaced with null.",
+    )
