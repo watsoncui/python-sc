@@ -10,14 +10,30 @@ from __future__ import annotations
 
 import pytest
 
-# --------------------------------------------------------------------------- #
-# F1. Operator params schema
-# --------------------------------------------------------------------------- #
+from scicompute_assistant.common.ai import AIOrchestrator
+from scicompute_assistant.common.ai.base import BaseLLM, LLMCallResult
 from scicompute_assistant.common.compute import TDAEngine
 from scicompute_assistant.common.compute.operators import get_operator
+from scicompute_assistant.common.observability import (
+    AlertEvent,
+    AlertSink,
+    CompositeAlertSink,
+    NullAlertSink,
+    PagerDutyAlertSink,
+    SlackWebhookAlertSink,
+    build_alert_sink,
+)
+from scicompute_assistant.common.protocols.api_models import (
+    ChatMessage,
+    LLMUsage,
+    ProviderMode,
+)
 from scicompute_assistant.common.protocols.tda_payload import TDARequest
 
 
+# --------------------------------------------------------------------------- #
+# F1. Operator params schema
+# --------------------------------------------------------------------------- #
 def test_operator_descriptor_fills_in_defaults():
     op = get_operator("vietoris_rips")
     params = op.descriptor().validate_params({"max_dimension": 1})
@@ -51,8 +67,6 @@ def test_operator_descriptor_enforces_max_bound():
 
 def test_tda_engine_rejects_bad_params_before_numpy_runs():
     engine = TDAEngine()
-    # Wrap the would-be-invalid override in TDARequest.params: schema validation
-    # should fire *before* anything touches NumPy or giotto-tda.
     req = TDARequest(
         data=[[0.0, 0.0], [1.0, 0.0]],
         operator="vietoris_rips",
@@ -66,15 +80,6 @@ def test_tda_engine_rejects_bad_params_before_numpy_runs():
 # --------------------------------------------------------------------------- #
 # F2. AIOrchestrator.describe()
 # --------------------------------------------------------------------------- #
-from scicompute_assistant.common.ai import AIOrchestrator
-from scicompute_assistant.common.ai.base import BaseLLM, LLMCallResult
-from scicompute_assistant.common.protocols.api_models import (
-    ChatMessage,
-    LLMUsage,
-    ProviderMode,
-)
-
-
 class _StubProvider(BaseLLM):
     name = "stub"
     mode = ProviderMode.SERVER
@@ -126,27 +131,16 @@ def test_describe_reports_no_providers_when_empty():
 # --------------------------------------------------------------------------- #
 # F3. CompositeAlertSink + PagerDutyAlertSink
 # --------------------------------------------------------------------------- #
-from scicompute_assistant.common.observability import (
-    AlertEvent,
-    AlertSink,
-    CompositeAlertSink,
-    NullAlertSink,
-    PagerDutyAlertSink,
-    SlackWebhookAlertSink,
-    build_alert_sink,
-)
-
-
 class _RecordingSink(AlertSink):
     def __init__(self) -> None:
         self.events: list[AlertEvent] = []
 
-    async def emit(self, event):  # type: ignore[override]
+    async def emit(self, event: AlertEvent) -> None:  # type: ignore[override]
         self.events.append(event)
 
 
 class _ExplodingSink(AlertSink):
-    async def emit(self, event):  # type: ignore[override]
+    async def emit(self, event: AlertEvent) -> None:  # type: ignore[override]
         raise RuntimeError("boom")
 
 
@@ -160,7 +154,6 @@ async def test_composite_fans_out_to_all_children():
 async def test_composite_isolates_failing_children():
     good = _RecordingSink()
     sink = CompositeAlertSink([_ExplodingSink(), good])
-    # MUST NOT raise even though one child throws.
     await sink.emit(AlertEvent(severity="error", title="x"))
     assert len(good.events) == 1
 
@@ -205,7 +198,6 @@ async def test_pagerduty_sink_swallows_delivery_errors(monkeypatch):
         raise RuntimeError("network")
 
     monkeypatch.setattr(sink, "_post", boom)
-    # Must not raise.
     await sink.emit(AlertEvent(severity="critical", title="x"))
 
 

@@ -95,7 +95,7 @@ app = create_app()
 def run() -> None:  # pragma: no cover
     import uvicorn
 
-    settings = load_settings()
+    load_settings()
     uvicorn.run(
         "scicompute_assistant.server.main:app",
         host="0.0.0.0",

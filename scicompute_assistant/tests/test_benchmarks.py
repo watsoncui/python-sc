@@ -19,17 +19,21 @@ from __future__ import annotations
 
 import math
 import random
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-
-# --------------------------------------------------------------------------- #
-# Betti curve vectorisation benchmark
-# --------------------------------------------------------------------------- #
+from scicompute_assistant.common.compute import ComputeKernel, TDAEngine
 from scicompute_assistant.common.compute.tda import _betti_curves_vectorised
+from scicompute_assistant.common.knowledge import KnowledgeService
+from scicompute_assistant.common.knowledge.service import BowBackend
+from scicompute_assistant.common.protocols.tda_payload import TDARequest
 
 
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
 def _make_random_diagram(n: int, max_dim: int = 2, seed: int = 0) -> tuple:
     rng = np.random.default_rng(seed)
     births = rng.uniform(0, 0.5, size=n)
@@ -38,6 +42,32 @@ def _make_random_diagram(n: int, max_dim: int = 2, seed: int = 0) -> tuple:
     return births, deaths, dims
 
 
+def _make_circle(n: int, noise: float = 0.02, seed: int = 7) -> list[list[float]]:
+    random.seed(seed)
+    return [
+        [
+            math.cos(2 * math.pi * i / n) + random.gauss(0, noise),
+            math.sin(2 * math.pi * i / n) + random.gauss(0, noise),
+        ]
+        for i in range(n)
+    ]
+
+
+def _build_bow_service(tmp_path: Path, n_docs: int = 30) -> KnowledgeService:
+    for i in range(n_docs):
+        f = tmp_path / f"week{i:02d}.md"
+        f.write_text(
+            f"tags: week:{i}, numpy\n"
+            f"# Week {i}\n"
+            f"NumPy vectorisation broadcasting ufunc {' '.join(str(j) for j in range(20))}\n",
+            encoding="utf-8",
+        )
+    return KnowledgeService(root=tmp_path, backend=BowBackend())
+
+
+# --------------------------------------------------------------------------- #
+# Betti curve vectorisation
+# --------------------------------------------------------------------------- #
 @pytest.mark.benchmark(group="betti")
 def test_bench_betti_100pts(benchmark):
     births, deaths, dims = _make_random_diagram(100)
@@ -69,19 +99,6 @@ def test_bench_betti_1000pts(benchmark):
 # --------------------------------------------------------------------------- #
 # TDA end-to-end (MST fallback, no giotto-tda needed)
 # --------------------------------------------------------------------------- #
-from scicompute_assistant.common.compute import TDAEngine
-from scicompute_assistant.common.protocols.tda_payload import TDARequest
-
-
-def _make_circle(n: int, noise: float = 0.02, seed: int = 7) -> list[list[float]]:
-    random.seed(seed)
-    return [
-        [math.cos(2 * math.pi * i / n) + random.gauss(0, noise),
-         math.sin(2 * math.pi * i / n) + random.gauss(0, noise)]
-        for i in range(n)
-    ]
-
-
 @pytest.mark.benchmark(group="tda")
 def test_bench_tda_mst_100pts(benchmark):
     engine = TDAEngine()
@@ -101,9 +118,6 @@ def test_bench_tda_mst_500pts(benchmark):
 # --------------------------------------------------------------------------- #
 # Sandbox execution
 # --------------------------------------------------------------------------- #
-from scicompute_assistant.common.compute import ComputeKernel
-
-
 @pytest.mark.benchmark(group="sandbox")
 def test_bench_sandbox_numpy_mean(benchmark):
     kernel = ComputeKernel(timeout_sec=5.0)
@@ -131,24 +145,6 @@ def test_bench_sandbox_pure_python(benchmark):
 # --------------------------------------------------------------------------- #
 # KnowledgeService BoW retrieval
 # --------------------------------------------------------------------------- #
-from pathlib import Path
-
-from scicompute_assistant.common.knowledge import KnowledgeService
-from scicompute_assistant.common.knowledge.service import BowBackend
-
-
-def _build_bow_service(tmp_path: Path, n_docs: int = 30) -> KnowledgeService:
-    for i in range(n_docs):
-        f = tmp_path / f"week{i:02d}.md"
-        f.write_text(
-            f"tags: week:{i}, numpy\n"
-            f"# Week {i}\n"
-            f"NumPy vectorisation broadcasting ufunc {' '.join(str(j) for j in range(20))}\n",
-            encoding="utf-8",
-        )
-    return KnowledgeService(root=tmp_path, backend=BowBackend())
-
-
 @pytest.mark.benchmark(group="knowledge")
 def test_bench_knowledge_bow_30docs(benchmark, tmp_path):
     svc = _build_bow_service(tmp_path, n_docs=30)
