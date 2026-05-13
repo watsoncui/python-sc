@@ -328,13 +328,13 @@
 
 **未来工单候选**
 
-- [ ] 接入 ChromaDB 后台索引器（v0.1 KnowledgeService 仍是 BoW）。
+- [x] 接入 ChromaDB 后台索引器 → `ChromaBackend` + `BowBackend` + `build_knowledge_service()` 自动选择；`tests/test_knowledge.py`（含 3 项 Chroma 真实索引测试）。
 - [ ] Tauri Rust 端 IPC 实装（目前只有 Python 占位）。
-- [ ] `pytest-benchmark` + GitHub Actions 跑性能回归。
+- [x] `pytest-benchmark` + GitHub Actions CI 流水线 → `tests/test_benchmarks.py` + `.github/workflows/ci.yml`（lint / test / benchmark / smoke 四阶段）。
 - [x] 给 `Operator.descriptor()` 引入轻量 JSON Schema（type/default/min/max），并在 `/tda/pipeline` 入口对 `params` 做 schema 校验 → `OperatorDescriptor.validate_params`；`tests/test_followups.py::F1`。
 - [x] 给 Slack 告警增加 PagerDuty 备选通道（同一 `AlertSink` 接口） → `PagerDutyAlertSink` + `CompositeAlertSink` + `build_alert_sink(...)` 工厂；`tests/test_followups.py::F3`。
 - [x] `AIOrchestrator.describe()` 取代 `/ai/providers` 中的私有属性访问 → 移除 `# noqa: SLF001`；`tests/test_followups.py::F2`。
-- [ ] `server/config.py` 拆分为嵌套模型（`LLMConfig` / `SandboxConfig` / `ObservabilityConfig`）；涉及面广（所有 `SCICOMP_*` 环境变量重命名），单独立 PR。
+- [x] `server/config.py` 拆分为 `LLMConfig` / `SandboxConfig` / `ObservabilityConfig` / `KnowledgeConfig` / `SecurityConfig` 五个嵌套模型；旧平铺 env 变量通过 `validation_alias` 向后兼容至 v1.0。
 
 ---
 

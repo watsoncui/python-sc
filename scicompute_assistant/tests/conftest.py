@@ -11,6 +11,8 @@ import pytest
 def _disable_outbound_llm(monkeypatch):
     monkeypatch.setenv("SCICOMP_DISABLE_OUTBOUND_LLM", "true")
     monkeypatch.setenv("SCICOMP_SERVER_API_KEY", "")
+    # Force BoW backend so tests never need Chroma / network
+    monkeypatch.setenv("SCICOMP_KNOWLEDGE__FORCE_BOW", "true")
     yield
 
 

@@ -37,11 +37,12 @@ async def _lifespan(_app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    configure_logging(level=logging.INFO, json_lines=settings.json_logs)
+    obs = settings.observability
+    configure_logging(level=logging.INFO, json_lines=obs.json_logs)
 
     sink = build_alert_sink(
-        slack_webhook_url=settings.slack_webhook_url or None,
-        pagerduty_routing_key=settings.pagerduty_routing_key or None,
+        slack_webhook_url=obs.slack_webhook_url or None,
+        pagerduty_routing_key=obs.pagerduty_routing_key or None,
     )
     set_alert_sink(sink)
 
@@ -63,7 +64,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestContextMiddleware)
-    app.add_middleware(IPRateLimiter, max_requests=settings.http_rpm_limit, window_sec=60.0)
+    app.add_middleware(IPRateLimiter, max_requests=settings.observability.http_rpm_limit, window_sec=60.0)
 
     install_exception_handlers(app)
 
